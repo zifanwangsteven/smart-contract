@@ -176,6 +176,18 @@ def payment_transaction(passphrase, amt, rcv, algod_client)->dict:
     pmtx = wait_for_confirmation(algod_client, txid, 4)
     return pmtx
 
+def asset_transaction(passphrase, amt, rcv, asset_id, algod_client)->dict:
+    params = algod_client.suggested_params()
+    add = mnemonic.to_public_key(passphrase)
+    key = mnemonic.to_private_key(passphrase)
+    params.flat_fee = True
+    params.fee = 1000
+    unsigned_txn = AssetTransferTxn(add, params, rcv, amt, asset_id)
+    signed = unsigned_txn.sign(key)
+    txid = algod_client.send_transaction(signed)
+    pmtx = wait_for_confirmation(algod_client, txid, 4)
+    return pmtx
+
 def main_pub(passphrase, proj_name, vol, url, par, coupon, payment_id,
              closure, start_round, period, total_payments, span, hold_up):
     # ensuring that buyer will be able to claim coupon on start_round
@@ -247,22 +259,51 @@ def main_pub(passphrase, proj_name, vol, url, par, coupon, payment_id,
     except Exception as e:
         print("Opt-in interest token failed :{}".format(e))
         return
-    print("Opt-in success!")
+    print("Opt-in interest token success!")
     print(msg)
+
+    # opt-in the escrow account for par token
+    print("--------------------------------------------")
+    print("Opt-in for par token......")
+    try:
+        program_str = escrow_result.encode()
+        program = base64.decodebytes(program_str)
+        arg1 = (1).to_bytes(8, 'big')
+        lsig = LogicSig(program, [arg1])
+        sp = cl.suggested_params()
+        atn = AssetTransferTxn(lsig.address(), sp, lsig.address(), 0, par_id)
+        lstx = LogicSigTransaction(atn, lsig)
+        txid = cl.send_transaction(lstx)
+        msg = wait_for_confirmation(cl, txid, 5)
+    except Exception as e:
+        print("Opt-in par token failed :{}".format(e))
+        return
+    print("Opt-in par token success!")
+    print(msg)
+
+    # transferring the interest tokens to escrow account
+    print("--------------------------------------------")
+    print("Transfer interest token to escrow account......")
+    try:
+        atn = asset_transaction(passphrase, vol * total_payments, escrow_id, interest_id, cl)
+    except Exception as e:
+        print("Transferred interest token failed :{}".format(e))
+        return
+    print("Transferred interest token successfully")
+    print(atn)
+    print("--------------------------------------------")
+
+    # transferring the par tokens to escrow account
+    print("--------------------------------------------")
+    print("Transfer par token to escrow account......")
+    try:
+        atn = asset_transaction(passphrase, vol, escrow_id, par_id, cl)
+    except Exception as e:
+        print("Transferred par token failed :{}".format(e))
+        return
+    print("Transferred par token successfully")
+    print(atn)
+    print("--------------------------------------------")
     print("Setup-complete!")
 
-
-main_pub("your passphrase",
-         "RoadCon",
-         1000,
-         "https://asdfsodf",
-         100,
-         1,
-         1910301,
-         13000000,
-         13500000,
-         500000,
-         10,
-         100000,
-         13200000)
 
