@@ -252,7 +252,7 @@ def main_pub(passphrase, proj_name, vol, url, par, coupon, payment_id,
     print("Setup-complete!")
 
 
-main_pub("connect another slight account merry project usage debris ignore achieve differ holiday cover annual adult poet lock minimum average occur melt renew nominee about list",
+main_pub("your passphrase",
          "RoadCon",
          1000,
          "https://asdfsodf",
