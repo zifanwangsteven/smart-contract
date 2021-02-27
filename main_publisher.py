@@ -261,6 +261,7 @@ def main_pub(passphrase, proj_name, vol, url, par, coupon, payment_id,
         return
     print("Opt-in interest token success!")
     print(msg)
+    print("--------------------------------------------")
 
     # opt-in the escrow account for par token
     print("--------------------------------------------")
@@ -280,6 +281,27 @@ def main_pub(passphrase, proj_name, vol, url, par, coupon, payment_id,
         return
     print("Opt-in par token success!")
     print(msg)
+    print("--------------------------------------------")
+
+    # opt-in the escrow account for payment token
+    print("--------------------------------------------")
+    print("Opt-in for payment token......")
+    try:
+        program_str = escrow_result.encode()
+        program = base64.decodebytes(program_str)
+        arg1 = (6).to_bytes(8, 'big')
+        lsig = LogicSig(program, [arg1])
+        sp = cl.suggested_params()
+        atn = AssetTransferTxn(lsig.address(), sp, lsig.address(), 0, payment_id)
+        lstx = LogicSigTransaction(atn, lsig)
+        txid = cl.send_transaction(lstx)
+        msg = wait_for_confirmation(cl, txid, 5)
+    except Exception as e:
+        print("Opt-in payment token failed :{}".format(e))
+        return
+    print("Opt-in payment token success!")
+    print(msg)
+    print("--------------------------------------------")
 
     # transferring the interest tokens to escrow account
     print("--------------------------------------------")
@@ -308,7 +330,7 @@ def main_pub(passphrase, proj_name, vol, url, par, coupon, payment_id,
 
 
 main_pub("connect another slight account merry project usage debris ignore achieve differ holiday cover annual adult poet lock minimum average occur melt renew nominee about list",
-         "Testing",
+         "SProject",
          1000,
          "https://asdfsodf",
          100,

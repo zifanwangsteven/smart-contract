@@ -86,6 +86,16 @@ def EscrowAccount(mgr_add, interest_id, par_id, accepted_payment, closure, par, 
         Gtxn[1].asset_amount() == Gtxn[0].asset_amount() * Int(par)
     )
 
+    # escrow account receives payment_id as payment
+    # arg_id = 6
+    optInPayment = And(
+        Txn.sender() == Txn.asset_receiver(),
+        Txn.asset_sender() == Global.zero_address(),
+        Txn.type_enum() == TxnType.AssetTransfer,
+        Txn.xfer_asset() == Int(accepted_payment),
+        Txn.asset_amount() == Int(0)
+    )
+
 
 
     program = Cond(
@@ -94,7 +104,8 @@ def EscrowAccount(mgr_add, interest_id, par_id, accepted_payment, closure, par, 
         [Btoi(Arg(0)) == Int(2), claim],
         [Btoi(Arg(0)) == Int(3), purchase],
         [Btoi(Arg(0)) == Int(4), interestPayment],
-        [Btoi(Arg(0)) == Int(5), parPayment]
+        [Btoi(Arg(0)) == Int(5), parPayment],
+        [Btoi(Arg(0)) == Int(6), optInPayment]
     )
 
 
