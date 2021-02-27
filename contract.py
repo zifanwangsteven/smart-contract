@@ -2,7 +2,9 @@ from pyteal import *
 """Escrow Account for Interest Payment and Par Value Payment"""
 # remember to verify the repayment of par
 
-def EscrowAccount(mgr_add, interest_id, par_id, accepted_payment, par, coupon, holdup_period, begin_round, end_round, period, span):
+def EscrowAccount(mgr_add, interest_id, par_id, accepted_payment, closure, par, coupon,
+                  holdup_period, begin_round, end_round, total_payment,
+                  period, span):
     tmpl_lease = Bytes("base64", "023sdDE2")
     # for EscrowAccount to receive payments in opt-in interest token
     # arg_id = 0
@@ -42,14 +44,14 @@ def EscrowAccount(mgr_add, interest_id, par_id, accepted_payment, par, coupon, h
         Gtxn[0].type_enum() == TxnType.AssetTransfer,
         Gtxn[0].xfer_asset() == Int(accepted_payment),
         Gtxn[0].asset_amount() % Int(par) == Int(0),
-        Gtxn[0].last_valid() < Int(begin_round),
+        Gtxn[0].last_valid() < Int(closure),
         Gtxn[1].type_enum() == TxnType.AssetTransfer,
         Gtxn[1].xfer_asset() == Int(par_id),
-        Gtxn[1].asset_amount() == (Gtxn[0].asset_amount() % Int(par)),
+        Gtxn[1].asset_amount() == (Gtxn[0].asset_amount() / Int(par)),
         Gtxn[0].sender() == Gtxn[1].asset_receiver(),
         Gtxn[2].type_enum() == TxnType.AssetTransfer,
         Gtxn[2].xfer_asset() == Int(interest_id),
-        Gtxn[2].asset_amount() == (Gtxn[0].asset_amount() % Int(par)) * Int(10), # 10 payments as set by default
+        Gtxn[2].asset_amount() == (Gtxn[0].asset_amount() / Int(par)) * Int(total_payment),
         Gtxn[0].sender() == Gtxn[2].asset_receiver(),
     )
 
@@ -58,13 +60,12 @@ def EscrowAccount(mgr_add, interest_id, par_id, accepted_payment, par, coupon, h
     interestPayment = And(
         Gtxn[0].type_enum() == TxnType.AssetTransfer,
         Gtxn[0].xfer_asset() == Int(interest_id),
+        Gtxn[0].lease() == tmpl_lease,
         Gtxn[1].sender() == Gtxn[0].sender(),
-        Gtxn[1].asset_receiver() == Gtxn[0].asset_receiver(),
+        Gtxn[1].asset_receiver() == Gtxn[0].sender(),
         Gtxn[1].xfer_asset() == Int(par_id),
         Gtxn[1].asset_amount() == Gtxn[0].asset_amount(),
         Gtxn[2].type_enum() == TxnType.AssetTransfer,
-        # Use lease to ensure the within one period the interest is only claimed once
-        Gtxn[2].lease() == tmpl_lease,
         Gtxn[2].xfer_asset() == Int(accepted_payment),
         Gtxn[2].asset_receiver() == Gtxn[0].asset_sender(),
         Global.round() > Int(begin_round),
@@ -100,8 +101,8 @@ def EscrowAccount(mgr_add, interest_id, par_id, accepted_payment, par, coupon, h
 
     return program
 
-def compile(mgr_add, interest_id, par_id, accepted_payment, par, coupon, holdup_period, begin_round, end_round, period, span, name):
-    program = EscrowAccount(mgr_add, interest_id, par_id, accepted_payment, par, coupon, holdup_period, begin_round, end_round, period, span)
+def compile(mgr_add, interest_id, par_id, accepted_payment, closure, par, coupon, holdup_period, begin_round, end_round, total_payment, period, span, name):
+    program = EscrowAccount(mgr_add, interest_id, par_id, accepted_payment, closure, par, coupon, holdup_period, begin_round, end_round, total_payment, period, span)
     with open("./teal/" + name + ".teal", "w") as f:
         compiled = compileTeal(program, Mode.Signature)
         f.write(compiled)
