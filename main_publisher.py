@@ -4,13 +4,7 @@ from contract import compile
 from algosdk.v2client import algod
 import os
 import base64
-import json
-
-# passphrase = "connect another slight account merry project usage debris ignore achieve differ holiday cover annual adult poet lock minimum average occur melt renew nominee about list"
-# interest_tx, interest_id = interest_token_issuance(algod_client, passphrase, "Road", 1000, "https://something", 10)
-# par_tx, par_id = par_token_issuance(algod_client, passphrase, "test", 1000, "https://something")
-# print("Interest token issued id: {}".format(interest_id))
-# print("Par token issued id: {}".format(par_id))
+from main_buyer import purchase_bond, claim_interest
 
 def algod_client():
     algod_address = os.environ.get("ALGOD_ADDRESS")
@@ -152,8 +146,8 @@ def create_escrow(mgr_add: str, proj_name: str, interest_id: int, par_id: int, p
 
 
     program = compile(mgr_add, interest_id, par_id, payment_id, closure, par,
-                      coupon, holdup, begin_round, end_round, period,
-                      total_payments, span, proj_name)
+                      coupon, holdup, begin_round, end_round, total_payments,
+                      period, span, proj_name)
 
     raw_teal = "./teal/{}.teal".format(proj_name)
     data = open(raw_teal, 'r').read()
@@ -189,13 +183,13 @@ def asset_transaction(passphrase, amt, rcv, asset_id, algod_client)->dict:
     return pmtx
 
 def main_pub(passphrase, proj_name, vol, url, par, coupon, payment_id,
-             closure, start_round, period, total_payments, span, hold_up):
+             closure, start_round, period, total_payments, span, hold_up, client):
     # ensuring that buyer will be able to claim coupon on start_round
     add = mnemonic.to_public_key(passphrase)
     key = mnemonic.to_private_key(passphrase)
     print("Checking configurations......")
     print("--------------------------------------------")
-    cl = algod_client()
+    cl = client
     if start_round % period != 0:
         start_round = (start_round + period) - (start_round % period)
         print("Start round for interest payment refactored to {}".format(start_round))
@@ -327,20 +321,50 @@ def main_pub(passphrase, proj_name, vol, url, par, coupon, payment_id,
     print(atn)
     print("--------------------------------------------")
     print("Setup-complete!")
+    return interest_id, par_id, escrow_result, escrow_id
 
 
-main_pub("connect another slight account merry project usage debris ignore achieve differ holiday cover annual adult poet lock minimum average occur melt renew nominee about list",
-         "Sro",
-         1000,
-         "https://asdfsodf",
-         10,
-         1,
-         14208367,
-         14000000,
-         14500000,
-         500000,
-         10,
-         100000,
-         13200000)
 
-
+#--------------------------------------------------------------------
+# FOR DEMONSTRATION PURPOSE ONLY
+#--------------------------------------------------------------------
+# ADDRESSES(FOR DEMO ONLY)
+pub_add = "KIDEKPZDSNHMDMAKR4ZXAJ7Q3RMYLZYQB5TZ5IGPNBZG47PMNB65FK7BFA"
+pub_pass = "connect another slight account merry project usage debris ignore achieve differ holiday cover annual adult poet lock minimum average occur melt renew nominee about list"
+buyer_add = "T7C6F3SHUYWJRZUCHVGDKSEEVOPJFOD2OHCVYKUU4UTIBVYQP4MNOBM7WY"
+buyer_pass = "actress aware rocket couch human van dignity ill window banana object alone food horror grape drive street shock embark amateur decade genre sign absent fever"
+#--------------------------------------------------------------------
+# MANUALLY SETTING PARAMETER
+closure = 12610711+ 18  # before which block purchase of bond is allowed
+proj_name = "INFI1" # the name used for token issuance
+payment_id = 14208367 # the asset used for purchase / payment
+par = 10 # the par value of bond as measured in units of payment_id
+coupon = 1 # the coupon value of bond as measured in units of payment_id
+vol = 1000 # total number of bond available
+total_payments = 10 # how many interest payments in total
+amt = 2 # number of bonds to be purchased by buyer
+#--------------------------------------------------------------------
+# PRESET PARAMETERS
+period = 10 # how many blocks between two interest payments
+first_coupon_payment = closure + 1 # the first block from which a bondholder is allowed to claim interest
+span = 500 # the length of interest payment period (exaggerated for demo purpose)
+client = algod_client()
+#--------------------------------------------------------------------
+# SETTING UP TOKENS, ESCROW ACCOUNT
+interest_id, par_id, escrow_result, escrow_id= main_pub(passphrase=pub_pass, proj_name=proj_name,
+         vol=vol, url="https://asdfsodf", par=par, coupon=coupon, payment_id=payment_id, closure=closure,
+         start_round=first_coupon_payment, period=period, total_payments=10, span=span, hold_up=13200000,client=client)
+#--------------------------------------------------------------------
+# BUYER PURCHASING
+params = client.suggested_params()
+first = params.first
+last = params.last
+purchase_bond(programstr=escrow_result, escrow_id=escrow_id, passphrase=buyer_pass,
+              amt=2, payment_id=payment_id, par=par,  interest_id=interest_id, # interest_id
+              par_id=par_id, total_payments=10, algod_client=client, first_block=first, last_block=last)
+#--------------------------------------------------------------------
+# CLAIM INTEREST
+claim_interest(programstr=escrow_result, escrow_id=escrow_id, passphrase=buyer_pass,
+               amt=2, coupon=coupon, payment_id=payment_id, interest_id=interest_id, par_id=par_id,
+               first_block=first_coupon_payment, last_block=first_coupon_payment + span, algod_client=client)
+#--------------------------------------------------------------------

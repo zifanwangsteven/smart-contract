@@ -5,7 +5,7 @@ from pyteal import *
 def EscrowAccount(mgr_add, interest_id, par_id, accepted_payment, closure, par, coupon,
                   holdup_period, begin_round, end_round, total_payment,
                   period, span):
-    tmpl_lease = Bytes("base64", "023sdDE2")
+    #tmpl_lease = Bytes("base64", "023sdDE2")
     # for EscrowAccount to receive payments in opt-in interest token
     # arg_id = 0
     optInInterest = And(
@@ -40,35 +40,35 @@ def EscrowAccount(mgr_add, interest_id, par_id, accepted_payment, closure, par, 
 
     # user purchases token from escrow
     # arg_id = 3
-    purchase = And(
+    purchase =  And(
         Gtxn[0].type_enum() == TxnType.AssetTransfer,
         Gtxn[0].xfer_asset() == Int(accepted_payment),
         Gtxn[0].asset_amount() % Int(par) == Int(0),
-        Gtxn[0].last_valid() < Int(closure),
+        Gtxn[0].first_valid() < Int(closure),
         Gtxn[1].type_enum() == TxnType.AssetTransfer,
         Gtxn[1].xfer_asset() == Int(par_id),
-        Gtxn[1].asset_amount() == (Gtxn[0].asset_amount() / Int(par)),
+        Gtxn[1].asset_amount() == Gtxn[0].asset_amount() / Int(par),
         Gtxn[0].sender() == Gtxn[1].asset_receiver(),
         Gtxn[2].type_enum() == TxnType.AssetTransfer,
         Gtxn[2].xfer_asset() == Int(interest_id),
-        Gtxn[2].asset_amount() == (Gtxn[0].asset_amount() / Int(par)) * Int(total_payment),
+        Gtxn[2].asset_amount() == Gtxn[1].asset_amount() * Int(total_payment),
         Gtxn[0].sender() == Gtxn[2].asset_receiver(),
     )
 
     # user receives interest from escrow
     # arg_id = 4
-    interestPayment = And(
+    interestPayment =  And(
         Gtxn[0].type_enum() == TxnType.AssetTransfer,
         Gtxn[0].xfer_asset() == Int(interest_id),
-        Gtxn[0].lease() == tmpl_lease,
+        #Gtxn[0].lease() == tmpl_lease,
+        Gtxn[1].type_enum() == TxnType.AssetTransfer,
         Gtxn[1].sender() == Gtxn[0].sender(),
         Gtxn[1].asset_receiver() == Gtxn[0].sender(),
         Gtxn[1].xfer_asset() == Int(par_id),
         Gtxn[1].asset_amount() == Gtxn[0].asset_amount(),
         Gtxn[2].type_enum() == TxnType.AssetTransfer,
         Gtxn[2].xfer_asset() == Int(accepted_payment),
-        Gtxn[2].asset_receiver() == Gtxn[0].asset_sender(),
-        Global.round() > Int(begin_round),
+        Gtxn[2].asset_receiver() == Gtxn[0].sender(),
         Gtxn[2].first_valid() % Int(period) == Int(0),
         Gtxn[2].last_valid() == Gtxn[1].first_valid() + Int(span),
         Gtxn[2].asset_amount() == Gtxn[0].asset_amount() * Int(coupon)
@@ -107,8 +107,6 @@ def EscrowAccount(mgr_add, interest_id, par_id, accepted_payment, closure, par, 
         [Btoi(Arg(0)) == Int(5), parPayment],
         [Btoi(Arg(0)) == Int(6), optInPayment]
     )
-
-
 
     return program
 

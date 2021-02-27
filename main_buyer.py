@@ -51,6 +51,20 @@ def purchase_bond(programstr, escrow_id, passphrase, amt, payment_id, par, inter
     sp.last = last_block
     sp.flat_fee = True
     sp.fee = 1000
+    print("--------------------------------------------")
+    print("Opt-in the buyer account for interest and par token......")
+    txn0_1 = AssetTransferTxn(add, sp, add, 0, interest_id)
+    txn0_2 = AssetTransferTxn(add, sp, add, 0, par_id)
+    sign0_1 = txn0_1.sign(key)
+    sign0_2 = txn0_2.sign(key)
+    txn0_1_id = algod_client.send_transaction(sign0_1)
+    wait_for_confirmation(algod_client, txn0_1_id, 5)
+    print("Successfully opt-in")
+    print("--------------------------------------------")
+    print("--------------------------------------------")
+    print("Bundling purchase transactions and submitting......")
+    txn0_2_id = algod_client.send_transaction(sign0_2)
+    wait_for_confirmation(algod_client, txn0_2_id, 5)
     txn1 = AssetTransferTxn(add, sp, escrow_id, amt * par, payment_id)
     txn2 = AssetTransferTxn(escrow_id, sp, add, amt, par_id)
     txn3 = AssetTransferTxn(escrow_id, sp, add, amt * total_payments, interest_id)
@@ -67,9 +81,11 @@ def purchase_bond(programstr, escrow_id, passphrase, amt, payment_id, par, inter
     stxn3 = LogicSigTransaction(txn3, lsig)
     signed_group = [stxn1, stxn2, stxn3]
     tx_id = algod_client.send_transactions(signed_group)
-    wait_for_confirmation(algod_client, tx_id, 10)
+    wait_for_confirmation(algod_client, tx_id, 200)
+    print("Successfulley commited transaction!")
+    print("--------------------------------------------")
 
-def claim_interest(programstr, escrow_id, passphrase, amt, coupon, payment_id, interest_id, par_id, first_block, last_block, lease, algod_client: algod_client()):
+def claim_interest(programstr, escrow_id, passphrase, amt, coupon, payment_id, interest_id, par_id, first_block, last_block, algod_client: algod_client()):
     add = mnemonic.to_public_key(passphrase)
     key = mnemonic.to_private_key(passphrase)
     sp = algod_client.suggested_params()
@@ -77,8 +93,9 @@ def claim_interest(programstr, escrow_id, passphrase, amt, coupon, payment_id, i
     sp.last = last_block
     sp.flat_fee = True
     sp.fee = 1000
-
-    txn1 = AssetTransferTxn(add, sp, escrow_id, amt, interest_id, lease=lease)
+    print("--------------------------------------------")
+    print("Bundling interest claim and submitting......")
+    txn1 = AssetTransferTxn(add, sp, escrow_id, amt, interest_id)
     txn2 = AssetTransferTxn(add, sp, add, amt, par_id)
     txn3 = AssetTransferTxn(escrow_id, sp, add, amt * coupon, payment_id)
     t = programstr.encode()
@@ -94,7 +111,9 @@ def claim_interest(programstr, escrow_id, passphrase, amt, coupon, payment_id, i
     stxn3 = LogicSigTransaction(txn3, lsig)
     signed_group = [stxn1, stxn2, stxn3]
     tx_id = algod_client.send_transactions(signed_group)
-    wait_for_confirmation(algod_client, tx_id, 10)
+    wait_for_confirmation(algod_client, tx_id, 200)
+    print("Successfully committed transaction!")
+    print("--------------------------------------------")
 
 
 def claim_par(programstr, escrow_id, passphrase, amt, par, payment_id, par_id, first_block, last_block, algod_client):
