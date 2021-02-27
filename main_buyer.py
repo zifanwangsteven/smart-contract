@@ -1,6 +1,5 @@
-from algosdk.future.transaction import LogicSig, PaymentTxn, AssetConfigTxn, AssetTransferTxn, LogicSigTransaction, calculate_group_id
+from algosdk.future.transaction import LogicSig, AssetTransferTxn, LogicSigTransaction, calculate_group_id
 from algosdk import account, mnemonic
-from contract import compile
 from algosdk.v2client import algod
 import os
 import base64
