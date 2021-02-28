@@ -329,10 +329,10 @@ def main_pub(passphrase, proj_name, vol, url, par, coupon, payment_id,
 # FOR DEMONSTRATION PURPOSE ONLY
 #--------------------------------------------------------------------
 # ADDRESSES(FOR DEMO ONLY)
-pub_add = "KIDEKPZDSNHMDMAKR4ZXAJ7Q3RMYLZYQB5TZ5IGPNBZG47PMNB65FK7BFA"
-pub_pass = "connect another slight account merry project usage debris ignore achieve differ holiday cover annual adult poet lock minimum average occur melt renew nominee about list"
-buyer_add = "T7C6F3SHUYWJRZUCHVGDKSEEVOPJFOD2OHCVYKUU4UTIBVYQP4MNOBM7WY"
-buyer_pass = "actress aware rocket couch human van dignity ill window banana object alone food horror grape drive street shock embark amateur decade genre sign absent fever"
+pub_add = "YOUR ADDRESS"
+pub_pass = "YOUR MNEMONIC"
+buyer_add = "YOUR ADDRESS"
+buyer_pass = "YOUR MNEMONIC"
 #--------------------------------------------------------------------
 # MANUALLY SETTING PARAMETER
 closure = 12610711+ 18  # before which block purchase of bond is allowed
