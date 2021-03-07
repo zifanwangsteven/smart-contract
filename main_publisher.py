@@ -1,10 +1,10 @@
 from algosdk.future.transaction import LogicSig, PaymentTxn, AssetConfigTxn, AssetTransferTxn, LogicSigTransaction
 from algosdk import account, mnemonic
 from contract import compile
+from main_buyer import purchase_bond, claim_interest, claim_par
 from algosdk.v2client import algod
 import os
 import base64
-from main_buyer import purchase_bond, claim_interest
 
 def algod_client():
     algod_address = os.environ.get("ALGOD_ADDRESS")
@@ -47,32 +47,14 @@ def wait_for_confirmation(client, transaction_id, timeout):
 
 
 def interest_token_issuance(algod_client, passphrase, proj_name, vol, url, total_payments) -> (int, int):
-    """
-    Issues Token for Interest Payment
-    Default 10 interest payments
-    returns an AssetConfigTxn()
-    """
-
-    # sets basic transaction parameter
     params = algod_client.suggested_params()
     params.fee = 1000
     params.flat_fee = True
     address = mnemonic.to_public_key(passphrase)
     key = mnemonic.to_private_key(passphrase)
-    # configure asset basics
-    txn = AssetConfigTxn(
-        sender= address,
-        sp=params,
-        total=total_payments * vol,
-        default_frozen=False,
-        unit_name=proj_name[0] + "IC",
-        asset_name=proj_name + "Interest",
-        manager=address,
-        reserve=address,
-        freeze=address,
-        clawback=address,
-        url=url,
-        decimals=0)
+    txn = AssetConfigTxn(sender= address, sp=params, total=total_payments * vol,
+                         default_frozen=False, unit_name=proj_name[0] + "IC", asset_name=proj_name + "Interest",
+                         manager=address, reserve=address, freeze=address, clawback=address, url=url, decimals=0)
     signed = txn.sign(key)
     txid = algod_client.send_transaction(signed)
     wait_for_confirmation(algod_client, txid, 4)
@@ -85,12 +67,6 @@ def interest_token_issuance(algod_client, passphrase, proj_name, vol, url, total
 
 
 def par_token_issuance(algod_client, passphrase, proj_name, vol, url) -> (int, int):
-    """
-    Issues Token for Par Value Payment
-    returns an AssetConfigTxn()
-    """
-
-    # sets basic transaction parameter
     params = algod_client.suggested_params()
     params.fee = 1000
     params.flat_fee = True
@@ -100,18 +76,9 @@ def par_token_issuance(algod_client, passphrase, proj_name, vol, url) -> (int, i
 
     # configure asset basics
     txn = AssetConfigTxn(
-        sender=address,
-        sp=params,
-        total=vol,
-        default_frozen=False,
-        unit_name=proj_name[0] + "PC",
-        asset_name=proj_name + "Par",
-        manager=address,
-        reserve=address,
-        freeze=address,
-        clawback=address,
-        url=url,
-        decimals=0)
+        sender=address, sp=params, total=vol, default_frozen=False,
+        unit_name=proj_name[0] + "PC", asset_name=proj_name + "Par",manager=address,
+        reserve=address, freeze=address, clawback=address, url=url, decimals=0)
     signed = txn.sign(key)
     txid = algod_client.send_transaction(signed)
     wait_for_confirmation(algod_client, txid, 4)
@@ -123,35 +90,14 @@ def par_token_issuance(algod_client, passphrase, proj_name, vol, url) -> (int, i
         print(e)
 
 
-def create_escrow(mgr_add: str, proj_name: str, interest_id: int, par_id: int, payment_id: int, closure: int,
-                  begin_round: int, end_round: int, par: int, coupon: int, total_payments, period: int, span: int, holdup: int, algod_client) -> (str, str):
-    """
+def create_escrow(mgr_add, proj_name, interest_id, par_id, payment_id, closure,
+                  begin_round, end_round, par, coupon, total_payments, period, span, holdup, algod_client) -> (str, str):
 
-    :param closure: the last round before which a buyer can purchase bond in escrow account
-    :param total_payments: the number of interest payments
-    :param holdup: the time period within which the bondholder cannot withdraw funding from escrow account
-    :param mgr_add: public address of manager of interest_id and par_id (should be bond issuer)
-    :param proj_name: name of the project, should be the same as when configuring ASA
-    :param interest_id: the asset-id field for the interest token created
-    :param par_id: the asset-id field for the par token created
-    :param payment_id: the asset-id field for the stablecoin accepted as payment
-    :param begin_round: the first round from which the bondholders can collect interest
-    :param end_round: the first round from which bondholders can collect par value
-    :param par: the par value of the bond, as measured in units of payment_id
-    :param coupon: the amount payable in every period, as measured in units of payment_id
-    :param period: the number of rounds after which an interest can be collected
-    :param span: the number of rounds allowed for claim of interest
-    :return: the hashed address of the TEAL program (escrow account)
-    """
-
-
-    program = compile(mgr_add, interest_id, par_id, payment_id, closure, par,
+    compile(mgr_add, interest_id, par_id, payment_id, closure, par,
                       coupon, holdup, begin_round, end_round, total_payments,
                       period, span, proj_name)
-
     raw_teal = "./teal/{}.teal".format(proj_name)
     data = open(raw_teal, 'r').read()
-
     try:
         response = algod_client.compile(data)
         return response['result'], response['hash']
@@ -182,19 +128,41 @@ def asset_transaction(passphrase, amt, rcv, asset_id, algod_client)->dict:
     pmtx = wait_for_confirmation(algod_client, txid, 4)
     return pmtx
 
-def main_pub(passphrase, proj_name, vol, url, par, coupon, payment_id,
-             closure, start_round, period, total_payments, span, hold_up, client):
-    # ensuring that buyer will be able to claim coupon on start_round
+def claim_fund(programstr, passphrase, escrow_id, amt, payment_id, first_block, last_block, algod_client: algod_client()):
     add = mnemonic.to_public_key(passphrase)
     key = mnemonic.to_private_key(passphrase)
-    print("Checking configurations......")
-    print("--------------------------------------------")
+    sp = algod_client.suggested_params()
+    sp.first = first_block
+    sp.last = last_block
+    sp.flat_fee = True
+    sp.fee = 1000
+    txn = AssetTransferTxn(escrow_id, sp, add, amt, payment_id)
+    t = programstr.encode()
+    program = base64.decodebytes(t)
+    arg = (3).to_bytes(8, 'big')
+    lsig = LogicSig(program, args=[arg])
+    stxn = LogicSigTransaction(txn, lsig)
+    tx_id = algod_client.send_transaction(stxn)
+    wait_for_confirmation(algod_client, tx_id, 10)
+
+
+def replenish_account(passphrase, escrow_id, amt, payment_id, algod_client):
+    add = mnemonic.to_public_key(passphrase)
+    key = mnemonic.to_private_key(passphrase)
+    sp = algod_client.suggested_params()
+    sp.flat_fee = True
+    sp.fee = 1000
+    txn = AssetTransferTxn(add, sp, escrow_id, amt, payment_id)
+    stxn = txn.sign(key)
+    tx_id = algod_client.send_transaction(stxn)
+    wait_for_confirmation(algod_client, tx_id, 10)
+
+def main_pub(passphrase, proj_name, vol, url, par, coupon, payment_id,
+             closure, start_round, period, total_payments, span, hold_up, client):
+    add = mnemonic.to_public_key(passphrase)
+    key = mnemonic.to_private_key(passphrase)
     cl = client
-    if start_round % period != 0:
-        start_round = (start_round + period) - (start_round % period)
-        print("Start round for interest payment refactored to {}".format(start_round))
     end_round = start_round + (total_payments-1) * period
-    print("--------------------------------------------")
 
     # issuance of tokens
     print("Issuing tokens......")
@@ -283,7 +251,7 @@ def main_pub(passphrase, proj_name, vol, url, par, coupon, payment_id,
     try:
         program_str = escrow_result.encode()
         program = base64.decodebytes(program_str)
-        arg1 = (6).to_bytes(8, 'big')
+        arg1 = (2).to_bytes(8, 'big')
         lsig = LogicSig(program, [arg1])
         sp = cl.suggested_params()
         atn = AssetTransferTxn(lsig.address(), sp, lsig.address(), 0, payment_id)
@@ -323,48 +291,58 @@ def main_pub(passphrase, proj_name, vol, url, par, coupon, payment_id,
     print("Setup-complete!")
     return interest_id, par_id, escrow_result, escrow_id
 
-
-
 #--------------------------------------------------------------------
 # FOR DEMONSTRATION PURPOSE ONLY
 #--------------------------------------------------------------------
 # ADDRESSES(FOR DEMO ONLY)
-pub_add = "KIDEKPZDSNHMDMAKR4ZXAJ7Q3RMYLZYQB5TZ5IGPNBZG47PMNB65FK7BFA"
-pub_pass = "connect another slight account merry project usage debris ignore achieve differ holiday cover annual adult poet lock minimum average occur melt renew nominee about list"
+pub_add = "IIMGS2WAF3QAFY23SUX4VBWMF2X7N66M2CN4EJNAVXIN5KQU3G4ZKS7DHE"
+pub_pass = "convince apple major clutch wash vote kind artist local fly habit usual any friend hobby dry push chair force renew palace yard merry ability cover"
 buyer_add = "T7C6F3SHUYWJRZUCHVGDKSEEVOPJFOD2OHCVYKUU4UTIBVYQP4MNOBM7WY"
 buyer_pass = "actress aware rocket couch human van dignity ill window banana object alone food horror grape drive street shock embark amateur decade genre sign absent fever"
 #--------------------------------------------------------------------
 # MANUALLY SETTING PARAMETER
-closure = 12610711+ 18  # before which block purchase of bond is allowed
-proj_name = "INFI1" # the name used for token issuance
+closure = 12764381 + 20  # before which block purchase of bond is allowed
+first_coupon_payment = closure + 1 # the first block from which a bondholder is allowed to claim interest
+proj_name = "INFI13" # the name used for token issuance
 payment_id = 14208367 # the asset used for purchase / payment
 par = 10 # the par value of bond as measured in units of payment_id
 coupon = 1 # the coupon value of bond as measured in units of payment_id
 vol = 1000 # total number of bond available
-total_payments = 10 # how many interest payments in total
+total_payments = 1 # how many interest payments in total
 amt = 2 # number of bonds to be purchased by buyer
 #--------------------------------------------------------------------
 # PRESET PARAMETERS
 period = 10 # how many blocks between two interest payments
-first_coupon_payment = closure + 1 # the first block from which a bondholder is allowed to claim interest
 span = 500 # the length of interest payment period (exaggerated for demo purpose)
 client = algod_client()
 #--------------------------------------------------------------------
+# ENSURING FIRST INTEREST PAYMENT IS A MULTIPLE OF PERIOD
+print("Checking configurations......")
+print("--------------------------------------------")
+cl = client
+if first_coupon_payment % period != 0:
+    first_coupon_payment = (first_coupon_payment + period) - (first_coupon_payment % period)
+    print("Start round for interest payment refactored to {}".format(first_coupon_payment))
+print("--------------------------------------------")
+#--------------------------------------------------------------------
 # SETTING UP TOKENS, ESCROW ACCOUNT
 interest_id, par_id, escrow_result, escrow_id= main_pub(passphrase=pub_pass, proj_name=proj_name,
-         vol=vol, url="https://asdfsodf", par=par, coupon=coupon, payment_id=payment_id, closure=closure,
-         start_round=first_coupon_payment, period=period, total_payments=10, span=span, hold_up=13200000,client=client)
+                                                        vol=vol, url="https://asdfsodf", par=par, coupon=coupon, payment_id=payment_id, closure=closure,
+                                                        start_round=first_coupon_payment, period=period, total_payments=10, span=span, hold_up=13200000,client=client)
 #--------------------------------------------------------------------
 # BUYER PURCHASING
 params = client.suggested_params()
 first = params.first
 last = params.last
 purchase_bond(programstr=escrow_result, escrow_id=escrow_id, passphrase=buyer_pass,
-              amt=2, payment_id=payment_id, par=par,  interest_id=interest_id, # interest_id
-              par_id=par_id, total_payments=10, algod_client=client, first_block=first, last_block=last)
+              amt=amt, payment_id=payment_id, par=par,  interest_id=interest_id,
+              par_id=par_id, total_payments=total_payments, algod_client=client, first_block=first, last_block=last)
 #--------------------------------------------------------------------
 # CLAIM INTEREST
 claim_interest(programstr=escrow_result, escrow_id=escrow_id, passphrase=buyer_pass,
-               amt=2, coupon=coupon, payment_id=payment_id, interest_id=interest_id, par_id=par_id,
+               amt=amt, coupon=coupon, payment_id=payment_id, interest_id=interest_id, par_id=par_id,
                first_block=first_coupon_payment, last_block=first_coupon_payment + span, algod_client=client)
 #--------------------------------------------------------------------
+# CLAIM PAR VALUE
+claim_par(programstr=escrow_result, escrow_id=escrow_id, passphrase=buyer_pass,
+          amt=amt, par=par, payment_id=payment_id, par_id=par_id, first_block=first_coupon_payment+1, last_block=first_coupon_payment+span+1, algod_client=client)

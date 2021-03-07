@@ -1,5 +1,5 @@
 from algosdk.future.transaction import LogicSig, AssetTransferTxn, LogicSigTransaction, calculate_group_id
-from algosdk import account, mnemonic
+from algosdk import mnemonic
 from algosdk.v2client import algod
 import os
 import base64
@@ -11,20 +11,10 @@ def algod_client():
     headers = {
         "X-API-KEY": api_key,
     }
-    alc = algod.AlgodClient(algod_token, algod_address, headers)
-    return alc
+    client = algod.AlgodClient(algod_token, algod_address, headers)
+    return client
 
 def wait_for_confirmation(client, transaction_id, timeout):
-    """
-    Wait until the transaction is confirmed or rejected, or until 'timeout'
-    number of rounds have passed.
-    Args:
-        transaction_id (str): the transaction to wait for
-        timeout (int): maximum number of rounds to wait
-    Returns:
-        dict: pending transaction information, or throws an error if the transaction
-            is not confirmed or rejected in the next timeout rounds
-    """
     start_round = client.status()["last-round"] + 1
     current_round = start_round
 
@@ -43,7 +33,7 @@ def wait_for_confirmation(client, transaction_id, timeout):
     raise Exception(
         'pending tx not found in timeout rounds, timeout value = : {}'.format(timeout))
 
-def purchase_bond(programstr, escrow_id, passphrase, amt, payment_id, par, interest_id, par_id, total_payments, algod_client: algod_client(), first_block, last_block):
+def purchase_bond(programstr, escrow_id, passphrase, amt, payment_id, par, interest_id, par_id, total_payments, algod_client, first_block, last_block):
     add = mnemonic.to_public_key(passphrase)
     key = mnemonic.to_private_key(passphrase)
     sp = algod_client.suggested_params()
@@ -70,7 +60,7 @@ def purchase_bond(programstr, escrow_id, passphrase, amt, payment_id, par, inter
     txn3 = AssetTransferTxn(escrow_id, sp, add, amt * total_payments, interest_id)
     t = programstr.encode()
     program = base64.decodebytes(t)
-    arg = (3).to_bytes(8, 'big')
+    arg = (4).to_bytes(8, 'big')
     lsig = LogicSig(program, args=[arg])
     grp_id = calculate_group_id([txn1, txn2, txn3])
     txn1.group = grp_id
@@ -100,7 +90,7 @@ def claim_interest(programstr, escrow_id, passphrase, amt, coupon, payment_id, i
     txn3 = AssetTransferTxn(escrow_id, sp, add, amt * coupon, payment_id)
     t = programstr.encode()
     program = base64.decodebytes(t)
-    arg = (4).to_bytes(8, 'big')
+    arg = (5).to_bytes(8, 'big')
     lsig = LogicSig(program, args=[arg])
     grp_id = calculate_group_id([txn1, txn2, txn3])
     txn1.group = grp_id
@@ -128,7 +118,7 @@ def claim_par(programstr, escrow_id, passphrase, amt, par, payment_id, par_id, f
     txn2 = AssetTransferTxn(escrow_id, sp, add, amt * par, payment_id)
     t = programstr.encode()
     program = base64.decodebytes(t)
-    arg = (5).to_bytes(8, 'big')
+    arg = (6).to_bytes(8, 'big')
     lsig = LogicSig(program, args=[arg])
     grp_id = calculate_group_id([txn1, txn2])
     txn1.group = grp_id
