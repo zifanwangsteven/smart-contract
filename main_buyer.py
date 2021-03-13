@@ -83,11 +83,13 @@ def claim_interest(programstr, escrow_id, passphrase, amt, coupon, payment_id, i
     sp.last = last_block
     sp.flat_fee = True
     sp.fee = 1000
+    lease_str = "NPWoaHaDbyyovXHAHoc5AnKskQwfmTm4YK+psfQutvM="
+    lease = base64.b64decode(lease_str)
     print("--------------------------------------------")
     print("Bundling interest claim and submitting......")
     txn1 = AssetTransferTxn(add, sp, escrow_id, amt, interest_id)
     txn2 = AssetTransferTxn(add, sp, add, amt, par_id)
-    txn3 = AssetTransferTxn(escrow_id, sp, add, amt * coupon, payment_id)
+    txn3 = AssetTransferTxn(escrow_id, sp, add, amt * coupon, payment_id, lease=lease)
     t = programstr.encode()
     program = base64.decodebytes(t)
     arg = (5).to_bytes(8, 'big')
