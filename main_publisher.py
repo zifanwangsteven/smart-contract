@@ -284,16 +284,16 @@ def main_pub(passphrase, proj_name, vol, url, par, coupon, payment_id,
 # FOR DEMONSTRATION PURPOSE ONLY
 #--------------------------------------------------------------------
 # ADDRESSES(FOR DEMO ONLY)
-pub_add = "IIMGS2WAF3QAFY23SUX4VBWMF2X7N66M2CN4EJNAVXIN5KQU3G4ZKS7DHE"
-pub_pass = "convince apple major clutch wash vote kind artist local fly habit usual any friend hobby dry push chair force renew palace yard merry ability cover"
-buyer_add = "T7C6F3SHUYWJRZUCHVGDKSEEVOPJFOD2OHCVYKUU4UTIBVYQP4MNOBM7WY"
-buyer_pass = "actress aware rocket couch human van dignity ill window banana object alone food horror grape drive street shock embark amateur decade genre sign absent fever"
+pub_add = "YOUR PUBLISHER ADDRESS"
+pub_pass = "YOUR PUBLISHER PASSPHRASE"
+buyer_add = "YOUR BUYER ADDRESS"
+buyer_pass = "YOUR BUYER PASSPHRASE"
 #--------------------------------------------------------------------
 # SETTING PARAMETERS
-closure = 12879459 + 20  # before which block purchase of bond is allowed
+closure =  20  # + CURRENT BLOCK NUMBER
 first_coupon_payment = closure + 1 # the first block from which a bondholder is allowed to claim interest
-proj_name = "INFI13" # the name used for token issuance
-payment_id = 14208367 # the asset used for purchase / payment
+proj_name = "NAME" # the name used for token issuance
+payment_id = "YOUR PAYMENT TOKEN"
 par = 10 # the par value of bond as measured in units of payment_id
 coupon = 1 # the coupon value of bond as measured in units of payment_id
 vol = 1000 # total number of bond available
