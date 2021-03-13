@@ -1,5 +1,5 @@
 from algosdk.future.transaction import LogicSig, PaymentTxn, AssetConfigTxn, AssetTransferTxn, LogicSigTransaction
-from algosdk import account, mnemonic
+from algosdk import mnemonic
 from contract import compile
 from main_buyer import purchase_bond, claim_interest, claim_par
 from algosdk.v2client import algod
@@ -17,16 +17,6 @@ def algod_client():
     return alc
 
 def wait_for_confirmation(client, transaction_id, timeout):
-    """
-    Wait until the transaction is confirmed or rejected, or until 'timeout'
-    number of rounds have passed.
-    Args:
-        transaction_id (str): the transaction to wait for
-        timeout (int): maximum number of rounds to wait
-    Returns:
-        dict: pending transaction information, or throws an error if the transaction
-            is not confirmed or rejected in the next timeout rounds
-    """
     start_round = client.status()["last-round"] + 1
     current_round = start_round
 
@@ -74,7 +64,6 @@ def par_token_issuance(algod_client, passphrase, proj_name, vol, url) -> (int, i
     address = mnemonic.to_public_key(passphrase)
     key = mnemonic.to_private_key(passphrase)
 
-    # configure asset basics
     txn = AssetConfigTxn(
         sender=address, sp=params, total=vol, default_frozen=False,
         unit_name=proj_name[0] + "PC", asset_name=proj_name + "Par",manager=address,
@@ -300,18 +289,17 @@ pub_pass = "convince apple major clutch wash vote kind artist local fly habit us
 buyer_add = "T7C6F3SHUYWJRZUCHVGDKSEEVOPJFOD2OHCVYKUU4UTIBVYQP4MNOBM7WY"
 buyer_pass = "actress aware rocket couch human van dignity ill window banana object alone food horror grape drive street shock embark amateur decade genre sign absent fever"
 #--------------------------------------------------------------------
-# MANUALLY SETTING PARAMETER
-closure = 12764381 + 20  # before which block purchase of bond is allowed
+# SETTING PARAMETERS
+closure = 12879459 + 20  # before which block purchase of bond is allowed
 first_coupon_payment = closure + 1 # the first block from which a bondholder is allowed to claim interest
 proj_name = "INFI13" # the name used for token issuance
 payment_id = 14208367 # the asset used for purchase / payment
 par = 10 # the par value of bond as measured in units of payment_id
 coupon = 1 # the coupon value of bond as measured in units of payment_id
 vol = 1000 # total number of bond available
-total_payments = 1 # how many interest payments in total
+total_payments = 10 # how many interest payments in total
 amt = 2 # number of bonds to be purchased by buyer
-#--------------------------------------------------------------------
-# PRESET PARAMETERS
+holdup = 120000000 # the round after which bond issuer can claim funds out of the escrow account
 period = 10 # how many blocks between two interest payments
 span = 500 # the length of interest payment period (exaggerated for demo purpose)
 client = algod_client()
@@ -327,8 +315,8 @@ print("--------------------------------------------")
 #--------------------------------------------------------------------
 # SETTING UP TOKENS, ESCROW ACCOUNT
 interest_id, par_id, escrow_result, escrow_id= main_pub(passphrase=pub_pass, proj_name=proj_name,
-                                                        vol=vol, url="https://asdfsodf", par=par, coupon=coupon, payment_id=payment_id, closure=closure,
-                                                        start_round=first_coupon_payment, period=period, total_payments=10, span=span, hold_up=13200000,client=client)
+                                                        vol=vol, par=par, coupon=coupon, payment_id=payment_id, closure=closure,
+                                                        start_round=first_coupon_payment, period=period, total_payments=total_payments, span=span, hold_up=holdup,client=client)
 #--------------------------------------------------------------------
 # BUYER PURCHASING
 params = client.suggested_params()
@@ -342,7 +330,3 @@ purchase_bond(programstr=escrow_result, escrow_id=escrow_id, passphrase=buyer_pa
 claim_interest(programstr=escrow_result, escrow_id=escrow_id, passphrase=buyer_pass,
                amt=amt, coupon=coupon, payment_id=payment_id, interest_id=interest_id, par_id=par_id,
                first_block=first_coupon_payment, last_block=first_coupon_payment + span, algod_client=client)
-#--------------------------------------------------------------------
-# CLAIM PAR VALUE
-claim_par(programstr=escrow_result, escrow_id=escrow_id, passphrase=buyer_pass,
-          amt=amt, par=par, payment_id=payment_id, par_id=par_id, first_block=first_coupon_payment+1, last_block=first_coupon_payment+span+1, algod_client=client)
