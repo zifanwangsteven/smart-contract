@@ -128,5 +128,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# API_KEY
-API_key.md
+# Teal
+teal/
